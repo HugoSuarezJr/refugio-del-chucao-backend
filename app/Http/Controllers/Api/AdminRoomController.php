@@ -24,7 +24,7 @@ class AdminRoomController extends Controller
     {
         $validated = $request->validated();
         $mainImagePath = $request->hasFile('mainImageFile')
-            ? $this->storePublicRoomImage($request->file('mainImageFile')->store('rooms', 'public'))
+            ? $this->storeRoomImage($request->file('mainImageFile'))
             : $this->normalizeStoredImagePath($validated['mainImage']);
 
         $galleryImages = collect($validated['images'] ?? [])
@@ -35,7 +35,7 @@ class AdminRoomController extends Controller
 
         if ($request->hasFile('imagesFiles')) {
             $galleryImages = collect($request->file('imagesFiles'))
-                ->map(fn ($file) => $this->storePublicRoomImage($file->store('rooms', 'public')))
+                ->map(fn ($file) => $this->storeRoomImage($file))
                 ->all();
         }
 
@@ -69,9 +69,12 @@ class AdminRoomController extends Controller
         return new RoomResource($room->fresh());
     }
 
-    protected function storePublicRoomImage(string $storedPath): string
+    protected function storeRoomImage(\Illuminate\Http\UploadedFile $file): string
     {
-        return '/storage/'.ltrim($storedPath, '/');
+        $disk = (string) config('booking.room_image_disk', config('filesystems.default', 'public'));
+        $storedPath = $file->store('rooms', $disk);
+
+        return Storage::disk($disk)->url($storedPath);
     }
 
     protected function normalizeStoredImagePath(?string $path): ?string

@@ -10,12 +10,8 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        if (! app()->environment(['local', 'testing']) && ! env('ADMIN_EMAIL')) {
-            return;
-        }
-
         User::query()->updateOrCreate(
-            ['email' => env('ADMIN_EMAIL', 'admin@refugiodelchucao.local')],
+            ['email' => env('ADMIN_EMAIL', 'admin@refugiodelchucao.test')],
             [
                 'name' => env('ADMIN_NAME', 'Admin Refugio'),
                 'password' => Hash::make(env('ADMIN_PASSWORD', 'password')),

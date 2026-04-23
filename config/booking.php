@@ -7,4 +7,5 @@ return [
     'default_reservation_source' => env('BOOKING_DEFAULT_SOURCE', 'website'),
     'pending_payment_hold_minutes' => (int) env('BOOKING_PENDING_PAYMENT_HOLD_MINUTES', 30),
     'admin_notification_email' => env('BOOKING_ADMIN_NOTIFICATION_EMAIL'),
+    'room_image_disk' => env('ROOM_IMAGE_DISK', env('FILESYSTEM_DISK', 'public')),
 ];
