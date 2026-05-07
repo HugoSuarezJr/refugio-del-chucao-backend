@@ -48,17 +48,3 @@ Route::prefix('/admin')->group(function () {
         Route::delete('/reservations/{reservation}', [AdminReservationController::class, 'destroy']);
     });
 });
-
-Route::get('/test-email', function () {
-
-    Mail::raw('Test email from Refugio del Chucao', function ($message) {
-
-        $message->to('husuarezjr@gmail.com')
-
-            ->subject('Test Email');
-
-    });
-
-    return 'Email sent!';
-
-});
