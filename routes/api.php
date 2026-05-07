@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\ReservationController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\StripeCheckoutController;
 use App\Http\Controllers\Api\StripeWebhookController;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/rooms', [RoomController::class, 'index']);
@@ -46,4 +47,18 @@ Route::prefix('/admin')->group(function () {
         Route::patch('/reservations/{reservation}', [AdminReservationController::class, 'update']);
         Route::delete('/reservations/{reservation}', [AdminReservationController::class, 'destroy']);
     });
+});
+
+Route::get('/test-email', function () {
+
+    Mail::raw('Test email from Refugio del Chucao', function ($message) {
+
+        $message->to('husuarezjr@gmail.com')
+
+            ->subject('Test Email');
+
+    });
+
+    return 'Email sent!';
+
 });
