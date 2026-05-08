@@ -10,6 +10,7 @@ use App\Services\ReservationEmailService;
 use App\Services\StripeCheckoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Stripe\Exception\SignatureVerificationException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -23,12 +24,18 @@ class StripeWebhookController extends Controller
 
     public function handle(Request $request): JsonResponse
     {
+        Log::info('Stripe webhook received.', [
+            'signature_present' => $request->hasHeader('Stripe-Signature'),
+        ]);
+
         try {
             $event = $this->stripeCheckoutService->constructWebhookEvent(
                 $request->getContent(),
                 $request->header('Stripe-Signature'),
             );
         } catch (SignatureVerificationException) {
+            Log::warning('Stripe webhook signature verification failed.');
+
             return response()->json([
                 'message' => 'Invalid Stripe webhook signature.',
             ], Response::HTTP_BAD_REQUEST);
@@ -36,7 +43,17 @@ class StripeWebhookController extends Controller
 
         $session = $event->data->object;
 
+        Log::info('Stripe webhook verified.', [
+            'event_type' => $event->type,
+            'session_id' => $session->id ?? null,
+            'reservation_code' => data_get($session, 'metadata.reservation_code'),
+        ]);
+
         if (!isset($session->id)) {
+            Log::warning('Stripe webhook event did not contain a session id.', [
+                'event_type' => $event->type,
+            ]);
+
             return response()->json(['received' => true]);
         }
 
@@ -46,6 +63,12 @@ class StripeWebhookController extends Controller
             ->first();
 
         if (! $reservation) {
+            Log::warning('Stripe webhook did not match any reservation.', [
+                'event_type' => $event->type,
+                'session_id' => $session->id,
+                'reservation_code' => data_get($session, 'metadata.reservation_code'),
+            ]);
+
             return response()->json(['received' => true]);
         }
 
@@ -60,6 +83,14 @@ class StripeWebhookController extends Controller
                 'cancelled_at' => null,
             ])->save();
 
+            Log::info('Reservation marked as paid from Stripe webhook.', [
+                'reservation_id' => $reservation->id,
+                'reservation_code' => $reservation->reservation_code,
+                'session_id' => $session->id,
+                'event_type' => $event->type,
+                'already_paid' => $wasAlreadyPaid,
+            ]);
+
             if (! $wasAlreadyPaid) {
                 $this->reservationEmailService->sendPaymentConfirmedEmails($reservation->fresh(['room']));
             }
@@ -71,6 +102,13 @@ class StripeWebhookController extends Controller
                 'payment_status' => PaymentStatus::Failed->value,
                 'cancelled_at' => now(),
             ])->save();
+
+            Log::info('Reservation marked as failed from Stripe webhook.', [
+                'reservation_id' => $reservation->id,
+                'reservation_code' => $reservation->reservation_code,
+                'session_id' => $session->id,
+                'event_type' => $event->type,
+            ]);
         }
 
         return response()->json(['received' => true]);
