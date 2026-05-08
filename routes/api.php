@@ -27,6 +27,7 @@ Route::get('/reservations/{reservation}', [ReservationController::class, 'show']
 Route::post('/stripe/checkout-session', [StripeCheckoutController::class, 'store']);
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
 Route::get('/debug/integrations', [DebugIntegrationController::class, 'status']);
+Route::get('/debug/reservations', [DebugIntegrationController::class, 'recentReservations']);
 Route::post('/debug/reservations/{reservationCode}/mark-paid', [DebugIntegrationController::class, 'markReservationPaid']);
 
 Route::prefix('/admin')->group(function () {

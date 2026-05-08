@@ -86,4 +86,30 @@ class DebugIntegrationApiTest extends TestCase
         Mail::assertSent(GuestReservationConfirmedMail::class, 1);
         Mail::assertSent(AdminReservationPaidMail::class, 1);
     }
+
+    public function test_debug_recent_reservations_returns_latest_codes(): void
+    {
+        Reservation::query()->create([
+            'room_id' => $this->room->id,
+            'reservation_code' => 'RDC-LIST01',
+            'guest_name' => 'Debug Guest',
+            'guest_email' => 'debug@example.com',
+            'check_in' => '2026-09-10',
+            'check_out' => '2026-09-12',
+            'number_of_guests' => 2,
+            'status' => ReservationStatus::Pending,
+            'payment_status' => PaymentStatus::Pending,
+            'currency' => 'CLP',
+            'subtotal' => 200000,
+            'fees_total' => 0,
+            'total' => 200000,
+            'pricing_breakdown' => ['nights' => 2],
+            'source' => 'stripe_checkout',
+        ]);
+
+        $this->getJson('/api/debug/reservations?token=debug-token')
+            ->assertOk()
+            ->assertJsonPath('reservations.0.reservation_code', 'RDC-LIST01')
+            ->assertJsonPath('reservations.0.payment_status', 'pending');
+    }
 }

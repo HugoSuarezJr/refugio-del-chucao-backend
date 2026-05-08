@@ -39,6 +39,37 @@ class DebugIntegrationController extends Controller
         ]);
     }
 
+    public function recentReservations(Request $request): JsonResponse
+    {
+        if (! $this->hasValidToken($request)) {
+            return response()->json(['message' => 'Not found.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $reservations = Reservation::query()
+            ->latest('id')
+            ->limit(10)
+            ->get([
+                'reservation_code',
+                'guest_email',
+                'status',
+                'payment_status',
+                'stripe_checkout_session_id',
+                'created_at',
+            ])
+            ->map(fn (Reservation $reservation) => [
+                'reservation_code' => $reservation->reservation_code,
+                'guest_email' => $reservation->guest_email,
+                'status' => $reservation->status->value,
+                'payment_status' => $reservation->payment_status->value,
+                'stripe_checkout_session_id' => $reservation->stripe_checkout_session_id,
+                'created_at' => optional($reservation->created_at)?->toIso8601String(),
+            ]);
+
+        return response()->json([
+            'reservations' => $reservations,
+        ]);
+    }
+
     public function markReservationPaid(Request $request, string $reservationCode): JsonResponse
     {
         if (! $this->hasValidToken($request)) {
