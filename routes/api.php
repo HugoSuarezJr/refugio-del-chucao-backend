@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\AdminRoomController;
 use App\Http\Controllers\Api\AdminReservationController;
 use App\Http\Controllers\Api\AdminSeasonalRateController;
+use App\Http\Controllers\Api\DebugIntegrationController;
 use App\Http\Controllers\Api\PricingController;
 use App\Http\Controllers\Api\ReservationController;
 use App\Http\Controllers\Api\RoomController;
@@ -25,6 +26,8 @@ Route::post('/reservations', [ReservationController::class, 'store']);
 Route::get('/reservations/{reservation}', [ReservationController::class, 'show']);
 Route::post('/stripe/checkout-session', [StripeCheckoutController::class, 'store']);
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
+Route::get('/debug/integrations', [DebugIntegrationController::class, 'status']);
+Route::post('/debug/reservations/{reservationCode}/mark-paid', [DebugIntegrationController::class, 'markReservationPaid']);
 
 Route::prefix('/admin')->group(function () {
     Route::post('/login', [AdminAuthController::class, 'login']);
