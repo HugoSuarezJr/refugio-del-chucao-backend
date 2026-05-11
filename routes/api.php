@@ -5,12 +5,11 @@ use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\AdminRoomController;
 use App\Http\Controllers\Api\AdminReservationController;
 use App\Http\Controllers\Api\AdminSeasonalRateController;
-use App\Http\Controllers\Api\DebugIntegrationController;
+use App\Http\Controllers\Api\MercadoPagoCheckoutController;
+use App\Http\Controllers\Api\MercadoPagoWebhookController;
 use App\Http\Controllers\Api\PricingController;
 use App\Http\Controllers\Api\ReservationController;
 use App\Http\Controllers\Api\RoomController;
-use App\Http\Controllers\Api\StripeCheckoutController;
-use App\Http\Controllers\Api\StripeWebhookController;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
 
@@ -24,11 +23,10 @@ Route::post('/pricing/calculate', [PricingController::class, 'calculate']);
 
 Route::post('/reservations', [ReservationController::class, 'store']);
 Route::get('/reservations/{reservation}', [ReservationController::class, 'show']);
-Route::post('/stripe/checkout-session', [StripeCheckoutController::class, 'store']);
-Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
-Route::get('/debug/integrations', [DebugIntegrationController::class, 'status']);
-Route::get('/debug/reservations', [DebugIntegrationController::class, 'recentReservations']);
-Route::post('/debug/reservations/{reservationCode}/mark-paid', [DebugIntegrationController::class, 'markReservationPaid']);
+Route::post('/mercado-pago/checkout-preference', [MercadoPagoCheckoutController::class, 'store']);
+Route::post('/mercado-pago/webhook', [MercadoPagoWebhookController::class, 'handle']);
+Route::post('/stripe/checkout-session', [MercadoPagoCheckoutController::class, 'store']);
+Route::post('/stripe/webhook', [MercadoPagoWebhookController::class, 'handle']);
 
 Route::prefix('/admin')->group(function () {
     Route::post('/login', [AdminAuthController::class, 'login']);

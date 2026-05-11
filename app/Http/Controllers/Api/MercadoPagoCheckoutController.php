@@ -6,16 +6,16 @@ use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreReservationRequest;
 use App\Http\Resources\ReservationResource;
+use App\Services\MercadoPagoCheckoutService;
 use App\Services\ReservationService;
-use App\Services\StripeCheckoutService;
 use Illuminate\Http\JsonResponse;
 use Throwable;
 
-class StripeCheckoutController extends Controller
+class MercadoPagoCheckoutController extends Controller
 {
     public function __construct(
         protected ReservationService $reservationService,
-        protected StripeCheckoutService $stripeCheckoutService,
+        protected MercadoPagoCheckoutService $mercadoPagoCheckoutService,
     ) {
     }
 
@@ -27,13 +27,13 @@ class StripeCheckoutController extends Controller
             $reservation = $this->reservationService->create([
                 ...$request->validated(),
                 'payment_status' => PaymentStatus::Pending->value,
-                'source' => 'stripe_checkout',
+                'source' => 'mercado_pago_checkout',
             ]);
 
-            $session = $this->stripeCheckoutService->createCheckoutSession($reservation);
+            $preference = $this->mercadoPagoCheckoutService->createCheckoutPreference($reservation);
 
             $reservation->forceFill([
-                'stripe_checkout_session_id' => $session->id,
+                'mercado_pago_preference_id' => data_get($preference, 'id'),
             ])->save();
         } catch (Throwable $exception) {
             if ($reservation?->exists) {
@@ -43,14 +43,17 @@ class StripeCheckoutController extends Controller
             report($exception);
 
             return response()->json([
-                'message' => 'No se pudo iniciar el pago con Stripe.',
+                'message' => 'No se pudo iniciar el pago con Mercado Pago.',
             ], 500);
         }
 
+        $checkoutUrl = data_get($preference, 'init_point') ?? data_get($preference, 'sandbox_init_point');
+
         return response()->json([
             'reservation' => new ReservationResource($reservation->fresh(['room'])),
-            'checkout_url' => $session->url,
-            'checkout_session_id' => $session->id,
+            'checkout_url' => $checkoutUrl,
+            'checkout_preference_id' => data_get($preference, 'id'),
+            'checkout_session_id' => data_get($preference, 'id'),
         ], 201);
     }
 }

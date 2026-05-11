@@ -11,14 +11,12 @@ use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\RoomBlock;
 use App\Models\SeasonalRate;
-use App\Services\StripeCheckoutService;
+use App\Services\MercadoPagoCheckoutService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use Mockery;
-use Stripe\Checkout\Session;
-use Stripe\Event;
 use Tests\TestCase;
 
 class BookingApiTest extends TestCase
@@ -152,20 +150,20 @@ class BookingApiTest extends TestCase
             ->assertJsonPath('total', 300000);
     }
 
-    public function test_it_creates_a_checkout_session_for_a_reservation(): void
+    public function test_it_creates_a_checkout_preference_for_a_reservation(): void
     {
-        $stripeCheckoutService = Mockery::mock(StripeCheckoutService::class);
-        $stripeCheckoutService
-            ->shouldReceive('createCheckoutSession')
+        $mercadoPagoCheckoutService = Mockery::mock(MercadoPagoCheckoutService::class);
+        $mercadoPagoCheckoutService
+            ->shouldReceive('createCheckoutPreference')
             ->once()
-            ->andReturn(Session::constructFrom([
-                'id' => 'cs_test_123',
-                'url' => 'https://checkout.stripe.test/session/cs_test_123',
-            ]));
+            ->andReturn([
+                'id' => 'pref_test_123',
+                'init_point' => 'https://mercadopago.test/checkout/pref_test_123',
+            ]);
 
-        $this->app->instance(StripeCheckoutService::class, $stripeCheckoutService);
+        $this->app->instance(MercadoPagoCheckoutService::class, $mercadoPagoCheckoutService);
 
-        $response = $this->postJson('/api/stripe/checkout-session', [
+        $response = $this->postJson('/api/mercado-pago/checkout-preference', [
             'room_id' => $this->room->slug,
             'guest_name' => 'Hugo Suarez',
             'guest_email' => 'hugo@example.com',
@@ -178,15 +176,15 @@ class BookingApiTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('checkout_url', 'https://checkout.stripe.test/session/cs_test_123')
-            ->assertJsonPath('checkout_session_id', 'cs_test_123')
+            ->assertJsonPath('checkout_url', 'https://mercadopago.test/checkout/pref_test_123')
+            ->assertJsonPath('checkout_preference_id', 'pref_test_123')
             ->assertJsonPath('reservation.payment_status', 'pending')
-            ->assertJsonPath('reservation.source', 'stripe_checkout');
+            ->assertJsonPath('reservation.source', 'mercado_pago_checkout');
 
         $this->assertDatabaseHas('reservations', [
             'reservation_code' => $response->json('reservation.reservation_code'),
             'payment_status' => PaymentStatus::Pending->value,
-            'stripe_checkout_session_id' => 'cs_test_123',
+            'mercado_pago_preference_id' => 'pref_test_123',
         ]);
     }
 
@@ -207,7 +205,7 @@ class BookingApiTest extends TestCase
             'fees_total' => 0,
             'total' => 300000,
             'pricing_breakdown' => ['nights' => 3],
-            'source' => 'stripe_checkout',
+            'source' => 'mercado_pago_checkout',
         ]);
 
         $this->getJson("/api/rooms/{$this->room->slug}/availability?check_in=2026-08-05&check_out=2026-08-08")
@@ -233,7 +231,7 @@ class BookingApiTest extends TestCase
             'fees_total' => 0,
             'total' => 300000,
             'pricing_breakdown' => ['nights' => 3],
-            'source' => 'stripe_checkout',
+            'source' => 'mercado_pago_checkout',
         ]);
 
         $reservation->timestamps = false;
@@ -248,7 +246,7 @@ class BookingApiTest extends TestCase
             ->assertJsonCount(0, 'conflicts');
     }
 
-    public function test_stripe_webhook_marks_reservation_as_paid(): void
+    public function test_mercado_pago_webhook_marks_reservation_as_paid(): void
     {
         Mail::fake();
         Config::set('booking.admin_notification_email', 'admin@refugiodelchucao.test');
@@ -256,8 +254,8 @@ class BookingApiTest extends TestCase
         $reservation = Reservation::query()->create([
             'room_id' => $this->room->id,
             'reservation_code' => 'RDC-STRIPE01',
-            'guest_name' => 'Reserva Stripe',
-            'guest_email' => 'stripe@example.com',
+            'guest_name' => 'Reserva Mercado Pago',
+            'guest_email' => 'mercadopago@example.com',
             'check_in' => '2026-08-05',
             'check_out' => '2026-08-08',
             'number_of_guests' => 2,
@@ -268,30 +266,35 @@ class BookingApiTest extends TestCase
             'fees_total' => 0,
             'total' => 300000,
             'pricing_breakdown' => ['nights' => 3],
-            'source' => 'stripe_checkout',
-            'stripe_checkout_session_id' => 'cs_test_123',
+            'source' => 'mercado_pago_checkout',
+            'mercado_pago_preference_id' => 'pref_test_123',
         ]);
 
-        $stripeCheckoutService = Mockery::mock(StripeCheckoutService::class);
-        $stripeCheckoutService
-            ->shouldReceive('constructWebhookEvent')
+        $mercadoPagoCheckoutService = Mockery::mock(MercadoPagoCheckoutService::class);
+        $mercadoPagoCheckoutService
+            ->shouldReceive('hasValidWebhookSignature')
             ->once()
-            ->andReturn(Event::constructFrom([
-                'type' => 'checkout.session.completed',
-                'data' => [
-                    'object' => [
-                        'id' => 'cs_test_123',
-                        'payment_intent' => 'pi_test_123',
-                        'metadata' => [
-                            'reservation_code' => $reservation->reservation_code,
-                        ],
-                    ],
-                ],
-            ]));
+            ->andReturn(true);
+        $mercadoPagoCheckoutService
+            ->shouldReceive('extractWebhookPaymentId')
+            ->once()
+            ->andReturn('mp_payment_123');
+        $mercadoPagoCheckoutService
+            ->shouldReceive('getPayment')
+            ->once()
+            ->with('mp_payment_123')
+            ->andReturn([
+                'id' => 'mp_payment_123',
+                'status' => 'approved',
+                'external_reference' => $reservation->reservation_code,
+            ]);
 
-        $this->app->instance(StripeCheckoutService::class, $stripeCheckoutService);
+        $this->app->instance(MercadoPagoCheckoutService::class, $mercadoPagoCheckoutService);
 
-        $this->postJson('/api/stripe/webhook', [])
+        $this->postJson('/api/mercado-pago/webhook', [
+            'type' => 'payment',
+            'data' => ['id' => 'mp_payment_123'],
+        ])
             ->assertOk()
             ->assertJsonPath('received', true);
 
@@ -299,7 +302,7 @@ class BookingApiTest extends TestCase
             'id' => $reservation->id,
             'status' => ReservationStatus::Confirmed->value,
             'payment_status' => PaymentStatus::Paid->value,
-            'stripe_payment_intent_id' => 'pi_test_123',
+            'mercado_pago_payment_id' => 'mp_payment_123',
         ]);
 
         Mail::assertSent(GuestReservationConfirmedMail::class, function (GuestReservationConfirmedMail $mail) use ($reservation) {
@@ -321,8 +324,8 @@ class BookingApiTest extends TestCase
         $reservation = Reservation::query()->create([
             'room_id' => $this->room->id,
             'reservation_code' => 'RDC-STRIPE02',
-            'guest_name' => 'Reserva Stripe',
-            'guest_email' => 'stripe@example.com',
+            'guest_name' => 'Reserva Mercado Pago',
+            'guest_email' => 'mercadopago@example.com',
             'check_in' => '2026-08-05',
             'check_out' => '2026-08-08',
             'number_of_guests' => 2,
@@ -333,31 +336,36 @@ class BookingApiTest extends TestCase
             'fees_total' => 0,
             'total' => 300000,
             'pricing_breakdown' => ['nights' => 3],
-            'source' => 'stripe_checkout',
-            'stripe_checkout_session_id' => 'cs_test_paid',
+            'source' => 'mercado_pago_checkout',
+            'mercado_pago_preference_id' => 'pref_test_paid',
             'paid_at' => now(),
         ]);
 
-        $stripeCheckoutService = Mockery::mock(StripeCheckoutService::class);
-        $stripeCheckoutService
-            ->shouldReceive('constructWebhookEvent')
+        $mercadoPagoCheckoutService = Mockery::mock(MercadoPagoCheckoutService::class);
+        $mercadoPagoCheckoutService
+            ->shouldReceive('hasValidWebhookSignature')
             ->once()
-            ->andReturn(Event::constructFrom([
-                'type' => 'checkout.session.completed',
-                'data' => [
-                    'object' => [
-                        'id' => 'cs_test_paid',
-                        'payment_intent' => 'pi_test_paid',
-                        'metadata' => [
-                            'reservation_code' => $reservation->reservation_code,
-                        ],
-                    ],
-                ],
-            ]));
+            ->andReturn(true);
+        $mercadoPagoCheckoutService
+            ->shouldReceive('extractWebhookPaymentId')
+            ->once()
+            ->andReturn('mp_payment_paid');
+        $mercadoPagoCheckoutService
+            ->shouldReceive('getPayment')
+            ->once()
+            ->with('mp_payment_paid')
+            ->andReturn([
+                'id' => 'mp_payment_paid',
+                'status' => 'approved',
+                'external_reference' => $reservation->reservation_code,
+            ]);
 
-        $this->app->instance(StripeCheckoutService::class, $stripeCheckoutService);
+        $this->app->instance(MercadoPagoCheckoutService::class, $mercadoPagoCheckoutService);
 
-        $this->postJson('/api/stripe/webhook', [])
+        $this->postJson('/api/mercado-pago/webhook', [
+            'type' => 'payment',
+            'data' => ['id' => 'mp_payment_paid'],
+        ])
             ->assertOk()
             ->assertJsonPath('received', true);
 

@@ -32,6 +32,8 @@ class Reservation extends Model
         'pricing_breakdown',
         'notes',
         'source',
+        'mercado_pago_preference_id',
+        'mercado_pago_payment_id',
         'stripe_checkout_session_id',
         'stripe_payment_intent_id',
         'paid_at',

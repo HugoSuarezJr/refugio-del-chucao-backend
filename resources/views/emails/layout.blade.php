@@ -1,5 +1,5 @@
 @php
-    $frontendUrl = rtrim((string) config('services.stripe.frontend_url', config('app.url')), '/');
+    $frontendUrl = rtrim((string) config('services.mercado_pago.frontend_url', config('app.url')), '/');
     $logoUrl = $frontendUrl !== '' ? "{$frontendUrl}/apple-touch-icon.png" : null;
     $supportEmail = config('mail.from.address');
 @endphp

@@ -35,10 +35,10 @@ return [
         ],
     ],
 
-    'stripe' => [
-        'secret_key' => env('STRIPE_SECRET_KEY'),
-        'publishable_key' => env('STRIPE_PUBLISHABLE_KEY'),
-        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    'mercado_pago' => [
+        'access_token' => env('MERCADO_PAGO_ACCESS_TOKEN'),
+        'webhook_secret' => env('MERCADO_PAGO_WEBHOOK_SECRET'),
+        'base_url' => env('MERCADO_PAGO_BASE_URL', 'https://api.mercadopago.com'),
         'frontend_url' => env('FRONTEND_URL', env('APP_URL')),
     ],
 
