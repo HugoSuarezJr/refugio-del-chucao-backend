@@ -12,6 +12,8 @@ use App\Models\RoomBlock;
 use App\Models\SeasonalRate;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AdminApiTest extends TestCase
@@ -87,6 +89,42 @@ class AdminApiTest extends TestCase
             'base_nightly_rate' => 125000,
             'capacity' => 3,
         ]);
+    }
+
+    public function test_it_appends_uploaded_gallery_images_instead_of_replacing_existing_ones(): void
+    {
+        Storage::fake('public');
+
+        $response = $this->withHeaders($this->adminHeaders)->patch("/api/admin/rooms/{$this->room->slug}", [
+            'name' => $this->room->name,
+            'subtitle' => $this->room->subtitle,
+            'description' => $this->room->description,
+            'bedType' => $this->room->bed_type,
+            'capacity' => $this->room->capacity,
+            'size' => $this->room->size,
+            'pricePerNight' => $this->room->base_nightly_rate,
+            'currency' => $this->room->currency,
+            'mainImage' => $this->room->main_image_url,
+            'images' => json_encode([$this->room->gallery_images[0]]),
+            'amenities' => json_encode($this->room->amenities ?? []),
+            'kitchenAmenities' => json_encode($this->room->kitchen_amenities ?? []),
+            'bathroomAmenities' => json_encode($this->room->bathroom_amenities ?? []),
+            'otherAmenities' => json_encode($this->room->other_amenities ?? []),
+            'policies' => json_encode($this->room->policies ?? []),
+            'highlights' => json_encode($this->room->highlights ?? []),
+            'isActive' => $this->room->is_active ? 'true' : 'false',
+            'imagesFiles' => [
+                UploadedFile::fake()->image('gallery-new.jpg'),
+            ],
+        ]);
+
+        $response->assertOk();
+
+        $galleryImages = $response->json('images');
+
+        $this->assertCount(2, $galleryImages);
+        $this->assertSame($this->room->gallery_images[0], $galleryImages[0]);
+        $this->assertStringStartsWith('/storage/rooms/', $galleryImages[1]);
     }
 
     public function test_it_can_create_and_delete_a_room_block_from_the_admin_api(): void

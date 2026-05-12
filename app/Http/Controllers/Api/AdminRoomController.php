@@ -34,9 +34,12 @@ class AdminRoomController extends Controller
             ->all();
 
         if ($request->hasFile('imagesFiles')) {
-            $galleryImages = collect($request->file('imagesFiles'))
-                ->map(fn ($file) => $this->storeRoomImage($file))
-                ->all();
+            $galleryImages = [
+                ...$galleryImages,
+                ...collect($request->file('imagesFiles'))
+                    ->map(fn ($file) => $this->storeRoomImage($file))
+                    ->all(),
+            ];
         }
 
         if (count($galleryImages) === 0) {
