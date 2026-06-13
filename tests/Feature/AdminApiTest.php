@@ -230,7 +230,9 @@ class AdminApiTest extends TestCase
         $createResponse
             ->assertCreated()
             ->assertJsonPath('guest_name', 'Reserva Admin')
-            ->assertJsonPath('status', ReservationStatus::Confirmed->value);
+            ->assertJsonPath('status', ReservationStatus::Confirmed->value)
+            ->assertJsonPath('total', 357000)
+            ->assertJsonPath('pricing.fee_total', 57000);
 
         $reservationId = $createResponse->json('id');
 
@@ -250,7 +252,9 @@ class AdminApiTest extends TestCase
         $updateResponse
             ->assertOk()
             ->assertJsonPath('guest_name', 'Reserva Admin Editada')
-            ->assertJsonPath('payment_status', PaymentStatus::Paid->value);
+            ->assertJsonPath('payment_status', PaymentStatus::Paid->value)
+            ->assertJsonPath('total', 357000)
+            ->assertJsonPath('pricing.fee_total', 57000);
 
         $deleteResponse = $this->withHeaders($this->adminHeaders)->deleteJson("/api/admin/reservations/{$reservationId}");
 

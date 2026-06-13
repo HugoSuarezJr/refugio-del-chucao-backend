@@ -126,7 +126,10 @@ class BookingApiTest extends TestCase
             ->assertJsonPath('pricing.nights', 3)
             ->assertJsonPath('pricing.nightly_rates.0.amount', 100000)
             ->assertJsonPath('pricing.nightly_rates.1.amount', 120000)
-            ->assertJsonPath('pricing.total', 340000);
+            ->assertJsonPath('pricing.subtotal', 340000)
+            ->assertJsonPath('pricing.fees.0.code', 'iva')
+            ->assertJsonPath('pricing.fee_total', 64600)
+            ->assertJsonPath('pricing.total', 404600);
     }
 
     public function test_it_creates_a_pending_reservation_when_available(): void

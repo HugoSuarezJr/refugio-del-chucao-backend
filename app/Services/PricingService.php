@@ -37,8 +37,15 @@ class PricingService
             $subtotal += $rate['amount'];
         }
 
-        $fees = [];
-        $feeTotal = 0;
+        $taxRate = (float) config('booking.tax_rate', 0.19);
+        $taxTotal = (int) round($subtotal * $taxRate);
+        $taxPercentage = (int) round($taxRate * 100);
+        $fees = [[
+            'code' => 'iva',
+            'label' => "IVA ({$taxPercentage}%)",
+            'amount' => $taxTotal,
+        ]];
+        $feeTotal = $taxTotal;
 
         return [
             'currency' => $room->currency,

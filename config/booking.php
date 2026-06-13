@@ -2,6 +2,7 @@
 
 return [
     'currency' => env('BOOKING_CURRENCY', 'CLP'),
+    'tax_rate' => (float) env('BOOKING_TAX_RATE', 0.19),
     'check_in_time' => env('BOOKING_CHECK_IN_TIME', '16:00'),
     'check_out_time' => env('BOOKING_CHECK_OUT_TIME', '12:00'),
     'default_reservation_source' => env('BOOKING_DEFAULT_SOURCE', 'website'),
